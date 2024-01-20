@@ -11,6 +11,9 @@ def combine_df(df_reco:pd.DataFrame, df_comp:pd.DataFrame):
         df_reco_comp = pd.concat([df_reco_comp, df_temp])
     df_reco_comp = df_reco_comp.rename(columns={'id':'item'})
 
+    df_reco_comp = df_reco_comp.query('rating!=0') #filter animes that we dont know from our dataset
+    df_reco_comp['rating'] = df_reco_comp.rating.apply(lambda x: 1 if x== -1 else 2) #set the rating scale to 1 or 2 for our dataset
+    df_comp['rating'] = df_comp.rating.apply(lambda x: 1 if x<=5 else 2) #set the rating scale to 1 or 2 for the other dataset
     return pd.concat([df_comp,df_reco_comp.loc[:,['user','item','rating']]], ignore_index=True)
 
 def compute_genres_stats(df:pd.DataFrame) -> dict:
