@@ -49,3 +49,20 @@ def get_recommendations(user:str, algo, df_users:pd.DataFrame, df_animes:pd.Data
     if filter_genre:
         df_rec = df_rec[df_rec.Genres_list.map(set([filter_genre]).issubset)]
     return pd.merge(df_rec.groupby('item').rating.median().sort_values(ascending=False).head(10), df_animes, how='inner', left_on='item', right_on='MAL_ID') #compute median of ratings by users and select top 10 rated animes
+
+def get_recommendations_v2(user:str, algo, df_full:pd.DataFrame, df_animes:pd.DataFrame, filter_genre:str=None):
+    """Get recommendations for a specific user. Needs the user name, the trained algo and a DataFrame with animes
+    
+    Based on predictions between user and animes rather than between similarity with other users"""
+    user_inner_uid = algo.trainset.to_inner_uid(user)
+    list_predictions = []
+    for anime_id in df_full.query('user!="@user"').item.unique():
+        try:
+            anime_inner_iid = algo.trainset.to_inner_iid(anime_id)
+        except ValueError:
+            pass
+        list_predictions.append([anime_id, algo.predict(user_inner_uid, anime_inner_iid).est])
+    df_rec = pd.merge(pd.DataFrame(list_predictions, columns=['MAL_ID', 'est_rating']), df_animes, how='inner', on='MAL_ID')
+    if filter_genre:
+        df_rec = df_rec[df_rec.Genres_list.map(set([filter_genre]).issubset)]
+    return df_rec.sort_values(by='est_rating', ascending=False).head(10)
