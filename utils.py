@@ -16,7 +16,7 @@ def combine_df(df_reco:pd.DataFrame, df_comp:pd.DataFrame):
     df_comp['rating'] = df_comp.rating.apply(lambda x: 1 if x<=5 else 2) #set the rating scale to 1 or 2 for the other dataset
     return pd.concat([df_comp,df_reco_comp.loc[:,['user','item','rating']]], ignore_index=True)
 
-def compute_genres_stats(df:pd.DataFrame) -> dict:
+def compute_genres_stats(df:pd.DataFrame, df_ref:pd.DataFrame=None) -> dict:
     """Returns a dict with ratio for the genres in the Dataframe"""
     count_genre = {}
     for genre_list in df.Genres_list:
@@ -39,3 +39,13 @@ def genres_for_playlists(genre_personal:dict, genre_global:dict) -> dict:
     for genre, ratio in genre_personal.items():
         genres_diff[genre] = ratio-genre_global[genre]
     return dict(sorted(genres_diff.items(), key=lambda x: x[1], reverse=True))
+
+def get_recommendations(user:str, algo, df_users:pd.DataFrame, df_animes:pd.DataFrame, filter_genre:str=None):
+    """Get recommendations for a specific user. Needs the user name, the trained algo and a DataFrame with animes"""
+    user_inner_uid = algo.trainset.to_inner_uid(user)
+    df_rec = pd.DataFrame([algo.trainset.to_raw_uid(x) for x in algo.get_neighbors(user_inner_uid,10)], columns=['user']) #create df with list of nearest users
+    df_rec = pd.merge(df_rec, df_users, how='inner', on='user') #merge with df that contain ratings
+    df_rec = pd.merge(df_rec, df_animes, how='inner', left_on='item', right_on='MAL_ID') #merge with df that contain animes names
+    if filter_genre:
+        df_rec = df_rec[df_rec.Genres_list.map(set([filter_genre]).issubset)]
+    return pd.merge(df_rec.groupby('item').rating.median().sort_values(ascending=False).head(10), df_animes, how='inner', left_on='item', right_on='MAL_ID') #compute median of ratings by users and select top 10 rated animes
